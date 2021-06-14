@@ -1,0 +1,142 @@
+---
+title: "Practical Machine Learning Human Activity Recognition"
+author: "marie dup"
+date: "6/9/2021"
+output: html_document
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE, include=FALSE}
+if(!require(datasets)) install.packages('datasets', repos = 'http://cran.us.r-project.org')
+if(!require(tidyverse)) install.packages('tidyverse', repos = 'http://cran.us.r-project.org')
+if(!require(explore)) install.packages('explore', repos = 'http://cran.us.r-project.org')
+if(!require(ggplot2)) install.packages('ggplot2', repos = 'http://cran.us.r-project.org')
+if(!require(stats)) install.packages('stats', repos = 'http://cran.us.r-project.org')
+if(!require(tools)) install.packages('tools', repos = 'http://cran.us.r-project.org')
+if(!require(GGally)) install.packages('GGally', repos = 'http://cran.us.r-project.org')
+if(!require(knitr)) install.packages('knitr', repos = 'http://cran.us.r-project.org')
+if(!require(readr)) install.packages('readr', repos = 'http://cran.us.r-project.org')
+if(!require(car)) install.packages('car', repos = 'http://cran.us.r-project.org')
+if(!require(ElemStatLearn)) install.packages('ElemStatLearn', repos = 'http://cran.us.r-project.org')
+if(!require(caret)) install.packages('caret', repos = 'http://cran.us.r-project.org')
+if(!require(quantmod)) install.packages('quantmod', repos = 'http://cran.us.r-project.org')
+if(!require(AppliedPredictiveModeling)) install.packages('AppliedPredictiveModeling', repos = 'http://cran.us.r-project.org')
+## specify global chunk options
+knitr::opts_chunk$set(#fig.width = 5, fig.height = 4, dpi = 300,
+                      out.width = '70%', fig.align = 'center',
+                      tidy.opts=list(width.cutoff=80),
+                     # tidy=TRUE,
+                    #  cache = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      echo = TRUE)
+```
+## Executive summary
+
+In this project we are using the data from:
+http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+We are trying to  predict the manner in which the person in the dataset did the exercise.
+
+
+## PART 1 - Data Exploration 
+In this section we will first load the data. 
+Once loaded we will remove the column which appears to not be relevant enough:
+- empty or NA data for more than 90% of that attribute
+- informative data which won't be relevant for our analysis of the best model
+Finally we will separate our data set in training and validation
+
+```{r data load and preprocessing}
+
+train_csv <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv" 
+test_csv <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+
+#train_df <- read.csv(train_csv, sep=",", nrows=-1, na.strings=c("NA", "#DIV/0!", ""))
+#test_df <- read.csv(test_csv, sep=",", nrows=-1, na.strings=c("NA", "#DIV/0!", ""))
+
+train_df <- read_csv(url(train_csv))
+test_df <- read_csv(url(test_csv))
+indColToRemove <- which(colSums(is.na(train_df) | train_df=="")>0.9*dim(train_df)[1])
+
+training_work <- train_df[,-indColToRemove]
+training_work <- as.data.frame(training_work[,-c(1:7)])
+
+testing_work <- test_df[,-indColToRemove]
+testing_work <- as.data.frame(testing_work[,-c(1:7)])
+
+head(training_work)
+
+set.seed(62433)
+
+inTrain = createDataPartition(training_work$classe, p = 3/4)[[1]]
+training = training_work[ inTrain,]
+testing = training_work[-inTrain,]
+
+dim(training); dim(testing)
+
+```
+
+## PART 2 - Modelisation and  analysis
+
+In this section we will execute 5 different models and use for prediction.
+We will then print the confusion matrix 
+Tree - Accuracy : 0.5004    
+Stochastic Gradient Boosting - Accuracy : 0.9604 
+Linear Discriminant Analysis - Accuracy : 0.6972 
+Naive Bayes - Accuracy :Accuracy : 0.7306   
+Random forest - Accuracy : 0.9957  
+
+```{r analysis}
+## Tree
+mod_rpart <- train(classe~., method="rpart", data=training)
+pred_rpart <- predict(mod_rpart, newdata=testing)
+table(factor(pred_rpart), factor(testing$classe))
+Rpart <- confusionMatrix(factor(pred_rpart), factor(testing$classe))
+
+##Stochastic Gradient Boosting
+##mod_gbm <- train(classe~., method="gbm", data=training)
+##pred_gbm <- predict(mod_gbm, newdata=testing)
+##table(factor(pred_gbm), factor(testing$classe))
+##Gbm <- confusionMatrix(factor(pred_gbm), factor(testing$classe))
+
+##Generalized Linear Model
+##mod_glm <- train(classe~., method="glm", data=training)
+##pred_glm <- predict(mod_glm, newdata=testing)
+##table(factor(pred_glm), factor(testing$classe))
+##Glm <- confusionMatrix(factor(pred_glm), factor(testing$classe))
+
+##Linear Discriminant Analysis
+mod_lda <- train(classe~., method="lda", data=training)
+pred_lda <- predict(mod_lda, newdata=testing)
+table(factor(pred_lda), factor(testing$classe))
+Lda <- confusionMatrix(factor(pred_lda), factor(testing$classe))
+
+##Naive Bayes
+mod_nb <- train(classe~., method="nb", data=training)
+pred_nb <- predict(mod_nb, newdata=testing)
+table(factor(pred_nb), factor(testing$classe))
+Nb <-confusionMatrix(factor(pred_nb), factor(testing$classe))
+
+##random forests
+mod_rf <- train(classe~., method="rf", data=training, trControl= trainControl(method="cv"), number=3)
+pred_rf <- predict(mod_rf, newdata=testing)
+table(factor(pred_rf), factor(testing$classe))
+Rf <- confusionMatrix(factor(pred_rf), factor(testing$classe))
+
+#Rpart; Gbm; Glm; Lda; Nb; Rf
+Rpart$overall; Lda$overall; Nb$overall; Rf$overall
+
+```
+
+
+## QUIZZ 
+
+You can also embed plots, for example:
+
+```{r quizz}
+
+quizz_test_rf <- predict(mod_rf, newdata=testing_work)
+quizz_test_rf
+
+```
+
+
